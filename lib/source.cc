@@ -1,3 +1,5 @@
+#pragma once
+
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -11,110 +13,55 @@ using std::thread;
 using std::vector;
 namespace os = std::filesystem;
 
-#define MAX_THREADS 8
-string name = "name";
-
+// #define MAX_THREADS 8
+// cross-platform default root
 #ifdef __linux__
-// linux code goes here
+#define DEF_ROOT "/"
 #elif _WIN32
-// windows code goes here
+#define DEF_ROOT "C:\\"
 #else
-
+#define DEF_ROOT "/"
 #endif
-/*
-int count_threads()
-{
-    int i = 0;
-    for (i; i < MAX_THREADS; i++)
-        if (slots[i] != NULL)
-            i++;
-    return i;
-}
-*/
-/*
-string check_this_directory(os::directory_iterator dir)
-{
 
-    for (auto &file : dir)
+// finds files
+class Locator
+{
+private:
+    string name;
+    vector<thread *> threads;
+
+public:
+    Locator(string name) : name(name) {}
+    ~Locator() {}
+
+    // recursive method to find file in dir, it generates thread for evry subdit
+    void find_in_dir(os::directory_iterator root)
     {
-        if (file.is_directory())
+        for (auto &file : root)
         {
-            if (thread_counter < 8)
+            if (file.is_directory())
             {
-                thread_counter++;
-                thread t{check_this_directory, file};
+                // new thread for this method and iterator which skips permission denied files and dirs
+                thread *t = new thread(&Locator::find_in_dir, this, os::directory_iterator(file.path(), os::directory_options::skip_permission_denied));
+                threads.push_back(t);
+            }
+            // in case of success
+            else if (file.path().filename() == name)
+            {
+                cout << file.path() << endl;
+                return;
             }
         }
-        if (file.path().filename() == name)
-        {
-            cout << file.path() << ": succes" << endl;
-            return "";
-        }
-        else
-        {
-            cout << file << endl;
-        }
     }
-    thread_counter--;
-}
-*/
 
-#include <list>
-
-int main()
-{
-    std::list<os::directory_iterator> todo;
-    todo.push_back(os::directory_iterator("/home/evgen"));
-
-    vector<thread *> workers;
-
-    int c = 1;
-    for (auto i = todo.begin(); i != todo.end(); i++)
+    void run(string root)
     {
-        /* code */
+        find_in_dir(os::directory_iterator(root, os::directory_options::skip_permission_denied));
+        // closing all threades
+        for (int i = 0; i < threads.size(); i++)
+            threads[i]->join();
     }
 
-    while (!todo.empty())
-    {
-        int c = 0;
-        while (!todo.empty() && c < 8)
-        {
-            auto current = todo.front(); todo.pop_front();
-            for (auto &file : current)
-            {
-                if (file.is_directory())
-                    todo.push_back(current);
-                else if (file.path().filename() == name)
-                {
-                    cout << file.path() << ": succes" << endl;
-                    return 0;
-                }
-                else
-                {
-                    cout << file.path() << endl;
-                }
-            }
-            c++;
-        }
-    }
-
-    auto current = todo.front();
-    todo.pop_front();
-    for (auto &file : current)
-    {
-        if (file.is_directory())
-            todo.push_back(current);
-        else if (file.path().filename() == name)
-        {
-            cout << file.path() << ": succes" << endl;
-            return 0;
-        }
-        else
-        {
-            cout << file.path() << endl;
-        }
-    }
-    // out
-
-    return 0;
-}
+    string getName() const& { return name; }
+    void setName(const string &name_) { name = name_; }
+};
